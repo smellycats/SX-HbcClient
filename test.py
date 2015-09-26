@@ -1,143 +1,217 @@
 # -*- coding: utf-8 -*-
+import time
 import json
+#import shutil
+
 import requests
+import grequests
 
-def fix_hphm(hphm, hpys):
-    if hphm != None and hphm != '-':
-        header = hphm[:2]
-        print "header %s"%header
-        tail = hphm[-1]
-        print "tail %s"%tail
-        if header == u'粤L':
-            if tail == u'学':
-                return {'hphm': hphm[1:-1], 'hpzl': '16', 'cpzl': u'标准车牌'}
-            if tail == u'挂':
-                return {'hphm': hphm[1:-1], 'hpzl': '15', 'cpzl': u'标准车牌'}
-            if hpys == 2 or hpys == u'蓝牌': #蓝牌
-                return {'hphm': hphm[1:], 'hpzl': '02', 'cpzl': u'标准车牌'}
-            if hpys == 3 or hpys == u'黄牌': #黄牌
-                return {'hphm': hphm[1:], 'hpzl': '01', 'cpzl': u'双层车牌'}
-            if hpys == 5 or hpys == u'黑牌': #黑牌
-                return {'hphm': hphm[1:], 'hpzl': '06', 'cpzl': u'标准车牌'}
-        return {'hphm': hphm, 'hpzl': '00', 'cpzl': u'其他'}
+import helper
+from ini_conf import MyIni
 
-def get_img(url):
 
 class HbcCompare(object):
 
     def __init__(self):
-        self.kakou_ip = '127.0.0.1'
-        self.kakou_port = 80
-        self.cgs_ip = '127.0.0.1'
-        self.cgs_port = 8098
-        self.id_flag = 201169426
-        self.step = 100
-        self.kkdd = '441302'
+        self.myini = MyIni()
+        self.hbc_conf = self.myini.get_hbc()
+        self.kakou_ini = {'host': '10.47.187.165', 'port': 80}
+        self.cgs_ini = {'host': '10.47.222.45', 'port': 8080,
+                        'username':'test1', 'password': 'test12345',
+                        'token': 'eyJhbGciOiJIUzI1NiIsImV4cCI6MTQ0MzI1NjcyMiwiaWF0IjoxNDQzMjQ5NTIyfQ.eyJzY29wZSI6WyJzY29wZV9nZXQiLCJoemhiY19nZXQiXSwidWlkIjoyM30.Qga6zksBXBu8Aq9zVBb7tsR_vQFI4A7IfzdgMvGEfrw'}
+        self.hbc_ini = {'host': '10.47.222.45', 'port': 8081,
+                        'username':'test1', 'password': 'test12345',
+                        'token': ''}
+        self.id_flag = self.hbc_conf['id_flag']
+        self.step = self.hbc_conf['step']
+        self.kkdd = self.hbc_conf['kkdd']
         
         self.kakou_status = False
         self.cgs_status = False
         self.hbc_status = False
+        # 黄标车集合
+        self.hzhbc_set = set()
+
+    def cgs_token(self):
+        url = 'http://%s:%s/token' % (self.cgs_ini['host'], self.cgs_ini['port'])
+        headers = {'content-type': 'application/json'}
+        data = {'username': self.cgs_ini['username'],
+                'password': self.cgs_ini['password']}
+        r = requests.post(url, headers=headers, data=json.dumps(data))
+        if r.status_code == 200:
+            self.cgs_ini['token'] = json.loads(r.text)['access_token']
+            print json.loads(r.text)['access_token']
+        else:
+            self.cgs_status = False
+            raise Exception('Cgs server error,%s,%s' % (r.status_code, r.text))
+
+    def hbc_token(self):
+        url = 'http://%s:%s/token' % (self.hbc_ini['host'], self.hbc_ini['port'])
+        headers = {'content-type': 'application/json'}
+        data = {'username': self.hbc_ini['username'],
+                'password': self.hbc_ini['password']}
+        r = requests.post(url, headers=headers, data=json.dumps(data))
+        if r.status_code == 201:
+            self.hbc_ini['token'] = r.text['access_token']
+        else:
+            self.hbc_status = False
+            raise Exception('Hbc server error,%s,%s' % (r.status_code, r.text))
+
+    def get_hzhbc_all(self):
+        headers = {'content-type': 'application/json',
+                   'access_token': self.cgs_ini['token']}
+        url = 'http://%s:%s/hzhbc' % (self.cgs_ini['host'], self.cgs_ini['port'])
+        try:
+            r = requests.get(url, headers)
+            if r.status_code == 200:
+                items = json.loads(r.text)['items']
+                print 'hbc_num:%s' % len(items)
+                for i in items:
+                    self.hzhbc_set.add((i['hphm'], i['hpzl']))
+            else:
+                self.cgs_status = False
+                raise Exception('Cgs server error,%s,%s' % (r.status_code, r.text))
+        except Exception as e:
+            self.cgs_status = False
+            raise
 
     def get_cltxs(self):
         last_id = self.id_flag + self.step
-        url = 'http://%s:%s/rest_hz_kakou/index.php/hd/kakou/cltxs/%s/%s'%(self.kakou_ip, self.kakou_port, self.id_flag, last_id)
+        url = 'http://%s:%s/rest_hz_kakou/index.php/hcq/kakou/cltxs/%s/%s'%(self.kakou_ini['host'], self.kakou_ini['port'], self.id_flag, last_id)
         try:
             r = requests.get(url)
             if r.status_code == 200:
-                return r.text
+                return json.loads(r.text)
+            else:
+                self.kakou_status = False
+                raise Exception('Kakou server error,%s,%s' % (r.status_code, r.text))
         except Exception as e:
-            print (e)
-        return False
+            self.kakou_status = False
+            raise
 
     def get_cltxmaxid(self):
-        url = 'http://%s:%s/rest_hz_kakou/index.php/hd/kakou/cltxmaxid'%(self.kakou_ip, self.kakou_port)
+        url = 'http://%s:%s/rest_hz_kakou/index.php/hcq/kakou/cltxmaxid'%(self.kakou_ini['host'], self.kakou_ini['port'])
         try:
             r = requests.get(url)
             if r.status_code == 200:
-                return r.text['maxid']
+                return json.loads(r.text)
+            else:
+                self.kakou_status = False
+                raise Exception('Kakou server error,%s,%s' % (r.status_code, r.text))
         except Exception as e:
-            print (e)
-        return False
+            self.kakou_status = False
+            raise
 
     def get_hbc(self, hphm, hpzl):
-        url = 'http://%s:%s/hzhbc/%s/%s'%(self.cgs_ip, self.cgs_port, hphm, hpzl)
+        headers = {'content-type': 'application/json',
+                   'access_token': self.cgs_ini['token']}
+        url = 'http://%s:%s/hzhbc/%s/%s'%(self.cgs_ini['host'],
+                                          self.cgs_ini['port'], hphm, hpzl)
         try:
-            r = requests.get(url)
+            r = requests.get(url, headers)
             if r.status_code == 200:
                 return r.text
+            else:
+                self.cgs_status = False
+                raise Exception('Cgs server error,%s,%s' % (r.status_code, r.text))
         except Exception as e:
-            print (e)
-        return False
+            self.cgs_status = False
+            raise
 
-    def get_exist_hbc_by_hphm(self, date, hphm):
-        url = 'http://%s:%s/hbc/%s/%s/%s'%(self.hzhbc_ip, self.hzhbc_port, date, hphm, self.kkdd)
+    def check_hbc_img_by_hphm(self, date, hphm):
+        headers = {'content-type': 'application/json',
+                   'access_token': self.hbc_ini['token']}
+        url = 'http://%s:%s/hbc/img/%s/%s/%s' % (self.hbc_ini['host'],
+                                             self.hbc_ini['port'],
+                                             date, hphm, self.kkdd)
         try:
             r = requests.get(url)
             if r.status_code == 200:
-                return r.text
+                return json.loads(r.text)
+            else:
+                self.hbc_status = False
+                raise Exception('HbcStore server error,%s,%s' % (r.status_code, r.text))
         except Exception as e:
-            print (e)
-        return False
+            self.hbc_status = False
+            raise
 
     def add_hbc(self, data):
-        url = 'http://%s:%s/hbc/%s/%s/%s'%(self.hzhbc_ip, self.hzhbc_port)
-        headers = {'content-type': 'application/json'}
+        url = 'http://%s:%s/hbc' % (self.hbc_ini['host'],
+                                             self.hbc_ini['port'])
+        headers = {'content-type': 'application/json',
+                   'access_token': self.hbc_ini['token']}
         try:
             r = requests.post(url, headers=headers, data=json.dumps(data))
             if r.status_code == 201:
-                return True
+                return json.loads(r.text)
+            else:
+                self.hbc_status = False
+                raise Exception('HbcStore server error,%s,%s' % (r.status_code, r.text))
         except Exception as e:
-            print (e)
-        return False
+            self.hbc_status = False
+            raise
 
     def cmpare_hbc(self):
-        maxid = self.get_cltxmaxid()
-        if not maxid:
-            self.kakou_status = False
-            return False
-        if maxid > self.id_flag:
-            carinfo = self.get_cltxs()
-            if not carinfo:
-                self.kakou_status = False
-                return False
-            if carinfo['total_count'] == 0:
-                return 0
-            for i in carinfo:
-                hbc_hphm = fix_hphm(i.hphm, i.hpys)
-                if hbc_hphm['hpzl'] != '00':
-                    # 查询黄标车数据库是否黄标车
-                    hbc = get_hbc(hbc_hphm['hphm'], hbc_hphm['hpzl'])
-                    if not hbc:
-                        self.cgs_status = False
-                        return False
-                    if hbc != {}:
-                        e_hbc = get_exist_hbc_by_hphm(date=i.jgsj[:10], i.hphm)
-                        if not e_hbc:
-                            self.hbc_status = False
-                            return False
-                        imgpath = ''
-                        if e_hbc != {}:
-                            try:
-                                imgpath = get_img(i.imgurl)
-                            except Exception as e:
-                                print (e)
-                        data = {'jgsj': i.jgsj, 'hphm': i.hphm,
-                                'kkdd_id': i.kkdd, 'hpys_id': i.hpys_id,
-                                'fxbh_id': i.fxbh_id, 'cdbh': i.cdbh,
-                                'imgurl': i.imgurl, 'imgpath': imgpath}
-                        add_hbc = self.add_hbc(data)
-                        if not add_hbc:
-                            self.hbc_status = False
-                            return False
-                    
+        maxid = self.get_cltxmaxid()['maxid']
+        if maxid <= self.id_flag:
+            # 没有新的数据 返回1
+            time.sleep(1)
+            return 1
+        carinfo = self.get_cltxs()
+        if carinfo['total_count'] == 0:
+            if self.id_flag + self.step < maxid:
+                self.id_flag += self.step
+            else:
+                self.id_flag = maxid
+            self.myini.set_hbc(self.id_flag)
+            time.sleep(1)
+            #print 'id_flag: %s' % self.id_flag
+            return 0
+        elif carinfo['total_count'] < self.step:
+            time.sleep(1)
+
+        # 黄标车检测 list
+        # hbc_list = []
+        for i in carinfo['items']:
+            # 判断车牌是否需要黄标车查询
+            f_hphm = helper.fix_hphm(i['hphm'], i['hpys_code'])
+            if f_hphm['hpzl'] != '00':
+                # 是否在黄标车集合里面
+                if (f_hphm['hphm'], f_hphm['hpzl']) in self.hzhbc_set:
+                    #print u'黄表车: %s, 号牌颜色: %s' % (i['hphm'], i['hpys'])
+                    hbc_img = self.check_hbc_img_by_hphm(i['jgsj'][:10], i['hphm'])
+                    imgpath = ''
+                    if hbc_img['total_count'] == 0:
+                        imgpath = 'D:\imgs\%s.jpg' % i['id']
+                        helper.get_url_img(i['imgurl'], imgpath)
+                        
+                    data = {
+                        'jgsj': i['jgsj'],
+                        'hphm': i['hphm'],
+                        'kkdd_id': i['kkdd_id'],
+                        'hpys_code': i['hpys_code'],
+                        'fxbh_code': i['fxbh_code'],
+                        'cdbh': i['cdbh'],
+                        'imgurl': i['imgurl'],
+                        'imgpath': imgpath
+                    }
+                    self.add_hbc(data)
+        self.id_flag = carinfo['items'][-1]['id']
+        self.myini.set_hbc(self.id_flag)
+        print 'id_flag: %s' % self.id_flag
+        return -1
 
     def main_loop(self):
+        hbc = HbcCompare()
+        hbc.get_hzhbc_all()
         while 1:
-            if self.kakou_status:
-                
-            
-
+            hbc.cmpare_hbc()
+            #time.sleep(0.5)
+        del hbc
         
 
 if __name__ == "__main__":
-    print fix_hphm(u'粤L12345',3)
+    hbc = HbcCompare()
+    hbc.main_loop()
+    del hbc
+
