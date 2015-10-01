@@ -15,12 +15,24 @@ class MyIni:
         conf['kkdd'] = self.cf.get(section, 'kkdd')
         return conf
 
+    def get_bk(self):
+        conf = {}
+        section = 'BK'
+        conf['time_flag'] = self.cf.get(section, 'time_flag')
+        conf['step'] = self.cf.getint(section, 'step')
+        conf['kkdd'] = self.cf.get(section, 'kkdd')
+        return conf
+
     def set_hbc(self, id_flag):
         self.cf.set('HBC', 'id_flag', id_flag)
         self.cf.write(open(self.conf_path, 'w'))
 
+    def set_bk(self, time_flag):
+        self.cf.set('BK', 'time_flag', time_flag)
+        self.cf.write(open(self.conf_path, 'w'))
+
 if __name__ == '__main__':
     ini = MyIni()
-    hbc = ini.get_hbc()
-    #ini.set_hbc(2)
+    hbc = ini.get_bk()
+    ini.set_bk('2015-10-01 00:10:00')
     print hbc
