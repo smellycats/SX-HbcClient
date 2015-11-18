@@ -32,6 +32,7 @@ class HbcCompare(object):
         self.hbc_ini = {'host': '10.47.222.45', 'port': 8081,
                         'username': 'test1', 'password': 'test12345',
                         'token': ''}
+        self.cgs2_ini = {'host': '10.47.222.45', 'port': 8081}
         self.id_flag = self.hbc_conf['id_flag']
         self.step = self.hbc_conf['step']
         self.kkdd = self.hbc_conf['kkdd']
@@ -39,6 +40,7 @@ class HbcCompare(object):
 
         self.kakou_status = False
         self.cgs_status = False
+        self.cgs2_status = False
         self.hbc_status = False
         # 黄标车集合 set
         self.hzhbc_set = set()
@@ -113,28 +115,49 @@ class HbcCompare(object):
             self.hbc_status = False
             raise
 
-    def get_hzhbc_all(self):
+    def get_hzhbc_by_hphm(self):
         headers = {
             'content-type': 'application/json',
-            'access_token': self.cgs_ini['token']
+            'access_token': self.cgs2_ini['token']
         }
-        url = 'http://%s:%s/hzhbc' % (self.cgs_ini['host'], self.cgs_ini['port'])
+        url = u'http://%s:%s/rest_cgs/index.php/v2/hbc/hbc?q=粤L12345+hpzl:02' % (
+            self.cgs2_ini['host'], self.cgs2_ini['port'])
         try:
             r = requests.get(url, headers)
             if r.status_code == 200:
-                items = json.loads(r.text)['items']
-                #print 'hbc_num:%s' % len(items)
-                for i in items:
-                    self.hzhbc_set.add((i['hphm'], i['hpzl']))
+                pass
             else:
-                self.cgs_status = False
+                self.cgs2_status = False
                 raise Exception('url: %s, status: %s, %s' % (
                     url, r.status_code, r.text))
         except Exception as e:
-            self.cgs_status = False
+            self.cgs2_status = False
             raise
 
     def get_hzhbc_all(self):
+        headers = {
+            'content-type': 'application/json',
+            'access_token': self.cgs2_ini['token']
+        }
+        url = 'http://%s:%s/rest_cgs/index.php/v2/hbc/hbcall' % (
+            self.cgs2_ini['host'], self.cgs2_ini['port'])
+        try:
+            r = requests.get(url, headers)
+            if r.status_code == 200:
+                # 清空黄标车信息
+                self.hzhbc_set = set()
+                #items = json.loads(r.text)['items']
+                for i in json.loads(r.text)['items']:
+                    self.hzhbc_set.add((i['hphm'], i['hpzl']))
+            else:
+                self.cgs2_status = False
+                raise Exception('url: %s, status: %s, %s' % (
+                    url, r.status_code, r.text))
+        except Exception as e:
+            self.cgs2_status = False
+            raise
+
+    def get_hzhbc_all2(self):
         headers = {
             'content-type': 'application/json',
             'access_token': self.cgs_ini['token']
@@ -381,20 +404,30 @@ class HbcCompare(object):
     def main_loop(self):
         #hbc = HbcCompare()
         # hbc.get_hzhbc_all()
+        # 时间戳标记
+        time_flag = time.time()
         # 加载初始化数据
         init_flag = False
         while 1:
             if not init_flag:
                 try:
+                    # 获取黄标车数据
                     self.get_hzhbc_all()
+                    self.cgs2_status = True
+                    # 获取卡口地点数据
                     self.get_kkdd()
-                    init_flag = True
                     self.cgs_status = True
+
+                    init_flag = True
                     print 'Init Finish'
                 except Exception as e:
                     logger.error(e)
                     time.sleep(1)
-            elif self.kakou_status and self.cgs_status and self.hbc_status:
+            elif self.kakou_status and self.cgs_status and self.cgs2_status and self.hbc_status:
+                # 现在时间大于时间戳标记时间2小时则更新黄标车数据
+                if time.time() - time_flag > 7200:
+                    self.get_hzhbc_all()
+                    time_flag = time.time()
                 try:
                     self.cmpare_hbc()
                 except Exception as e:
@@ -406,9 +439,11 @@ class HbcCompare(object):
                         self.get_cltxmaxid()
                         self.kakou_status = True
                     if not self.cgs_status:
-                        self.get_hzhbc_all()
                         self.get_kkdd()
                         self.cgs_status = True
+                    if not self.cgs2_status:
+                        self.get_hzhbc_by_hphm()
+                        self.cgs2_status = True
                     if not self.hbc_status:
                         self.check_hbc_img_by_hphm('2015-09-26', u'粤L12345')
                         self.hbc_status = True
