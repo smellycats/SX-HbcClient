@@ -136,29 +136,6 @@ class HbcCompare(object):
             self.cgs_status = False
             raise
 
-##    def get_hzhbc_all2(self):
-##        headers = {
-##            'content-type': 'application/json',
-##            'access_token': self.cgs2_ini['token']
-##        }
-##        url = 'http://%s:%s/rest_cgs/index.php/v2/hbc/hbcall' % (
-##            self.cgs2_ini['host'], self.cgs2_ini['port'])
-##        try:
-##            r = requests.get(url, headers)
-##            if r.status_code == 200:
-##                # 清空黄标车信息
-##                self.hzhbc_set = set()
-##                #items = json.loads(r.text)['items']
-##                for i in json.loads(r.text)['items']:
-##                    self.hzhbc_set.add((i['hphm'], i['hpzl']))
-##            else:
-##                self.cgs2_status = False
-##                raise Exception('url: %s, status: %s, %s' % (
-##                    url, r.status_code, r.text))
-##        except Exception as e:
-##            self.cgs2_status = False
-##            raise
-
     def get_hzhbc_all(self):
         headers = {
             'content-type': 'application/json',
@@ -330,8 +307,8 @@ class HbcCompare(object):
         finally:
             return imgpath
 
-    # 创建文件夹
     def makedirs(self, path):
+        """创建文件夹"""
         try:
             if os.path.isdir(path):
                 pass
