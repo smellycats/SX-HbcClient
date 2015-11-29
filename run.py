@@ -282,9 +282,8 @@ class HbcCompare(object):
         else:
             image.save(imgpath, 'JPEG')
 
-
-    # 根据URL地址获取图片到本地
     def get_img_by_url(self, url, path, name, text, wz_img):
+        """根据URL地址获取图片到本地"""
         try:
             imgpath = u'%s/%s.jpg' % (path, name)
             self.add_wm(url, imgpath, name, text, wz_img)
@@ -318,7 +317,54 @@ class HbcCompare(object):
             logging.exception(e)
             raise
 
-    def cmpare_hbc(self):
+    def cmpare_hbc(self, i):
+        """根据车辆信息比对黄标车"""
+        # 判断车牌是否需要黄标车查询
+        f_hphm = helper.fix_hphm(i['hphm'], i['hpys_code'])
+        if f_hphm['hpzl'] != '00':
+            # 是否在黄标车集合里面
+            if self.check_hbc(f_hphm['hphm'], f_hphm['hpzl']):
+                jgsj = arrow.get(i['jgsj'])
+                # print u'黄表车: %s, 号牌颜色: %s' % (i['hphm'], i['hpys'])
+                hbc_img = self.check_hbc_img_by_hphm(
+                    jgsj.format('YYYY-MM-DD'), i['hphm'])
+                imgpath = ''
+                if hbc_img['total_count'] == 0:
+                    try:
+                        path = u'%s/%s/违章图片目录' % (
+                            self.hbc_img_path, jgsj.format(u'YYYY年MM月DD日'))
+                        name = u'机号%s车道A%s%sR454DOK3T%sC%sP%s驶向%s违章黄标车违反禁令标志' % (
+                            self.jh_dict[i['kkdd_id']], i['cdbh'],
+                            jgsj.format(u'YYYY年MM月DD日HH时mm分ss秒'),
+                            f_hphm['cpzl'], self.hpys_dict[i['hpys_code']],
+                            i['hphm'], self.fxbh_dict.get(i['fxbh_code'], u'其他'))
+                        text = u'违法时间:%s 违法地点:惠州市惠城区%s\n违法代码:13441 违法行为:违章黄标车 设备编号:%s\n防伪码:%s' % (
+                            i['jgsj'], i['kkdd'], self.sbdh_dict[i['kkdd_id']], helper.get_sign())
+                        wz_img = self.hbc_img.get((i['kkdd_id'], i['fxbh_code']), None)
+                        if wz_img is not None:
+                            wz_img = u'%s/%s' % (self.wz_img_path, wz_img)
+                        imgpath = self.get_img_by_url(
+                            i['imgurl'], path, name, text, wz_img)
+                    except Exception as e:
+                        logger.error('url: %s' % i['imgurl'])
+                        logger.error(e)
+                        imgpath = ''
+
+                data = {
+                    'jgsj': i['jgsj'],
+                    'hphm': i['hphm'],
+                    'kkdd_id': i['kkdd_id'],
+                    'hpys_code': i['hpys_code'],
+                    'fxbh_code': i['fxbh_code'],
+                    'cdbh': i['cdbh'],
+                    'imgurl': i['imgurl'],
+                    'imgpath': imgpath
+                }
+                # 添加黄标车信息到数据库
+                self.add_hbc(data)
+
+    def fetch_data(self):
+        """获取卡口车辆信息"""
         maxid = self.get_cltxmaxid()['maxid']
         if maxid <= self.id_flag:
             # 没有新的数据 返回1
@@ -337,59 +383,17 @@ class HbcCompare(object):
         elif carinfo['total_count'] < self.step:
             time.sleep(1)
 
-        # 黄标车检测 list
-        # hbc_list = []
+        # 遍历列表并比对是否黄标车
         for i in carinfo['items']:
-            # 判断车牌是否需要黄标车查询
-            f_hphm = helper.fix_hphm(i['hphm'], i['hpys_code'])
-            if f_hphm['hpzl'] != '00':
-                # 是否在黄标车集合里面
-                if self.check_hbc(f_hphm['hphm'], f_hphm['hpzl']):
-                    jgsj = arrow.get(i['jgsj'])
-                    # print u'黄表车: %s, 号牌颜色: %s' % (i['hphm'], i['hpys'])
-                    hbc_img = self.check_hbc_img_by_hphm(
-                        jgsj.format('YYYY-MM-DD'), i['hphm'])
-                    imgpath = ''
-                    if hbc_img['total_count'] == 0:
-                        try:
-                            path = u'%s/%s/违章图片目录' % (
-                                self.hbc_img_path, jgsj.format(u'YYYY年MM月DD日'))
-                            name = u'机号%s车道A%s%sR454DOK3T%sC%sP%s驶向%s违章黄标车违反禁令标志' % (
-                                self.jh_dict[i['kkdd_id']], i['cdbh'],
-                                jgsj.format(u'YYYY年MM月DD日HH时mm分ss秒'),
-                                f_hphm['cpzl'], self.hpys_dict[i['hpys_code']],
-                                i['hphm'], self.fxbh_dict.get(i['fxbh_code'], u'其他'))
-                            text = u'违法时间:%s 违法地点:惠州市惠城区%s\n违法代码:13441 违法行为:违章黄标车 设备编号:%s\n防伪码:%s' % (
-                                i['jgsj'], i['kkdd'], self.sbdh_dict[i['kkdd_id']], helper.get_sign())
-                            wz_img = self.hbc_img.get((i['kkdd_id'], i['fxbh_code']), None)
-                            if wz_img is not None:
-                                wz_img = u'%s/%s' % (self.wz_img_path, wz_img)
-                            imgpath = self.get_img_by_url(
-                                i['imgurl'], path, name, text, wz_img)
-                        except Exception as e:
-                            logger.error('url: %s' % i['imgurl'])
-                            logger.error(e)
-                            imgpath = ''
+            if i['kkdd_id'] is not None:
+                self.cmpare_hbc(i)
 
-                    data = {
-                        'jgsj': i['jgsj'],
-                        'hphm': i['hphm'],
-                        'kkdd_id': i['kkdd_id'],
-                        'hpys_code': i['hpys_code'],
-                        'fxbh_code': i['fxbh_code'],
-                        'cdbh': i['cdbh'],
-                        'imgurl': i['imgurl'],
-                        'imgpath': imgpath
-                    }
-                    self.add_hbc(data)
         self.id_flag = carinfo['items'][-1]['id']
         self.myini.set_hbc(self.id_flag)
-        print 'id_flag: %s' % self.id_flag
+        print '%s_id_flag: %s' % (self.city, self.id_flag)
         return -1
 
     def main_loop(self):
-        #hbc = HbcCompare()
-        # hbc.get_hzhbc_all()
         # 时间戳标记
         time_flag = time.time()
         # 加载初始化数据
@@ -415,7 +419,7 @@ class HbcCompare(object):
                     if time.time() - time_flag > 7200:
                         self.get_hzhbc_all()
                         time_flag = time.time()
-                    self.cmpare_hbc()
+                    self.fetch_data()
                 except Exception as e:
                     logger.error(e)
                     time.sleep(1)
