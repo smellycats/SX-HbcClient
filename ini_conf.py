@@ -14,8 +14,9 @@ class MyIni:
         conf['step'] = self.cf.getint(section, 'step')
         conf['kkdd'] = self.cf.get(section, 'kkdd')
         conf['city'] = self.cf.get(section, 'city')
-        conf['hbc_img_path'] = self.cf.get(section, 'hbc_img_path')
-        conf['wz_img_path'] = self.cf.get(section, 'wz_img_path')
+        conf['city_name'] = self.cf.get(section, 'city_name').decode('gbk')
+        conf['hbc_img_path'] = self.cf.get(section, 'hbc_img_path').decode('gbk')
+        conf['wz_img_path'] = self.cf.get(section, 'wz_img_path').decode('gbk')
         return conf
 
     def get_bk(self):
