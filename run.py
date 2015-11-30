@@ -30,7 +30,7 @@ class HbcCompare(object):
         self.cgs_ini = {'host': '10.47.222.45', 'port': 8080,
                         'username': 'test1', 'password': 'test12345',
                         'token': 'eyJhbGciOiJIUzI1NiIsImV4cCI6MTQ0MzI1NjcyMiwiaWF0IjoxNDQzMjQ5NTIyfQ.eyJzY29wZSI6WyJzY29wZV9nZXQiLCJoemhiY19nZXQiXSwidWlkIjoyM30.Qga6zksBXBu8Aq9zVBb7tsR_vQFI4A7IfzdgMvGEfrw'}
-        self.hbc_ini = {'host': '10.47.222.45', 'port': 8081,
+        self.hbc_ini = {'host': '127.0.0.1', 'port': 5000,
                         'username': 'test1', 'password': 'test12345',
                         'token': ''}
         #self.cgs2_ini = {'host': '10.47.222.45', 'port': 8081}
@@ -42,7 +42,6 @@ class HbcCompare(object):
 
         self.kakou_status = False
         self.cgs_status = False
-        self.cgs2_status = False
         self.hbc_status = False
         # 黄标车集合 set
         self.hzhbc_set = set()
@@ -58,6 +57,7 @@ class HbcCompare(object):
         self.jh_dict = {}
         # 设备代号 dict
         self.sbdh_dict = {}
+        # 方向编号 dict
         self.fxbh_dict = {
             'NS': u'北向南',
             'SN': u'南向北',
@@ -68,8 +68,8 @@ class HbcCompare(object):
         }
         self.hbc_img_path = self.hbc_conf['hbc_img_path']#u'd://videoandimage'
         self.wz_img_path = self.hbc_conf['wz_img_path']
-
-        self.hbc_img = helper.hbc_img()
+        self.hbc_img_dict = {}
+        #self.hbc_img = helper.hbc_img()
 
     def cgs_token(self):
         url = 'http://%s:%s/token' % (self.cgs_ini['host'], self.cgs_ini['port'])
@@ -184,6 +184,7 @@ class HbcCompare(object):
             raise
 
     def get_kkdd(self):
+        """获取卡口地点代码"""
         url = 'http://%s:%s/kkdd/%s' % (
             self.hbc_ini['host'], self.hbc_ini['port'], self.kkdd)
         headers = {
@@ -197,6 +198,31 @@ class HbcCompare(object):
                 for i in items:
                     self.jh_dict[i['kkdd_id']] = i['cf_id']
                     self.sbdh_dict[i['kkdd_id']] = i['sbdh']
+            else:
+                self.hbc_status = False
+                raise Exception('url: %s, status: %s, %s'
+                                % (url, r.status_code, r.text))
+        except Exception as e:
+            self.hbc_status = False
+            raise
+
+    def get_hbc_img(self):
+        """获取违章黄标车路标图片"""
+        url = 'http://%s:%s/wzimg/%s' % (
+            self.hbc_ini['host'], self.hbc_ini['port'], self.kkdd)
+        headers = {
+            'content-type': 'application/json',
+            'access_token': self.hbc_ini['token']
+        }
+        try:
+            r = requests.get(url, headers=headers)
+            if r.status_code == 200:
+                base_path = u'%s\%s' % (self.wz_img_path, self.kkdd)
+                helper.makedirs(base_path)
+                for i in json.loads(r.text)['items']:
+                    path = u'%s\%s_%s.jpg' % (base_path, i['kkdd_id'], i['fxbh_code'])
+                    helper.get_url_img(i['img_url'], path)
+                    self.hbc_img_dict[(i['kkdd_id'], i['fxbh_code'])] = path
             else:
                 self.hbc_status = False
                 raise Exception('url: %s, status: %s, %s'
@@ -232,6 +258,7 @@ class HbcCompare(object):
         return False
 
     def add_hbc(self, data):
+        """添加黄标车信息"""
         url = 'http://%s:%s/hbc' % (
             self.hbc_ini['host'], self.hbc_ini['port'])
         headers = {
@@ -279,9 +306,9 @@ class HbcCompare(object):
                     i['jgsj'], self.city_name, i['kkdd'],
                     self.sbdh_dict[i['kkdd_id']], helper.get_sign())
                 # 违章路标图片
-                wz_img = self.hbc_img.get((i['kkdd_id'], i['fxbh_code']), None)
-                if wz_img is not None:
-                    wz_img = u'hbc_img/'+wz_img
+                wz_img = self.hbc_img_dict.get((i['kkdd_id'], i['fxbh_code']), None)
+##                if wz_img is not None:
+##                    wz_img = u'hbc_img/'+wz_img
                 imgpath = img_builder.get_img_by_url(
                     i['imgurl'], path, name, text, wz_img)
             except Exception as e:
@@ -381,6 +408,8 @@ class HbcCompare(object):
 
 if __name__ == "__main__":
     hbc = HbcCompare()
+    hbc.get_hbc_img()
+    del hbc
 ##    hbc = HbcCompare()
 ##    #hbc.main_loop()
 ##    url = 'http://localhost/kakou/images/test2.jpg'
