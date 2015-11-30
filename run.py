@@ -12,6 +12,7 @@ from PIL import Image
 
 import helper
 import helper_wm
+import img_builder
 from ini_conf import MyIni
 from my_logger import debug_logging
 
@@ -249,113 +250,57 @@ class HbcCompare(object):
             self.hbc_status = False
             raise
 
-    def add_wm(self, url, imgpath, name, text, wz_img):
-        buf = cStringIO.StringIO()
-        helper.get_img(url, buf)
-        im = Image.open(cStringIO.StringIO(buf.getvalue()))
-        width, heigh = im.size
-        if width > 1200:
-            font_size = 30
-        else:
-            font_size = 25
-        # 文字水印
-        mark = helper_wm.text2img(text, font_size=font_size)
-        # 叠加水印到图片
-        image = helper_wm.watermark(im, mark, 'left_top', 0.7)
-        if wz_img is not None:
-            wz_im = Image.open(wz_img)
-            wz_width, wz_heigh = wz_im.size
-            if width < wz_width:
-                wz_im.thumbnail((width, width))
-                wz_width, wz_heigh = wz_im.size
-            join_im = Image.new('RGBA', (width, heigh+wz_heigh))
-            join_im.paste(image, (0, 0))
-            join_im.paste(wz_im, (0, heigh))
-            join_im.save(imgpath, 'JPEG')
-        else:
-            image.save(imgpath, 'JPEG')
-
-    def get_img_by_url(self, url, path, name, text, wz_img):
-        """根据URL地址获取图片到本地"""
-        try:
-            imgpath = u'%s/%s.jpg' % (path, name)
-            self.add_wm(url, imgpath, name, text, wz_img)
-        except IOError as e:
-            print (e)
-            logger.error(e)
-            if e[0] == 2 or e[0] == 22:
-                name = name.replace('*', '_').replace('?', '_').replace('|', '_').replace(
-                    '<', '_').replace('>', '_').replace('/', '_').replace('\\', '_')
-                self.makedirs(path)
-                
-                self.add_wm(url, imgpath, name, text, wz_img)
-            else:
-                imgpath = ''
-                raise
-        except Exception as e:
-            print (e)
-            logger.error(e)
-            raise
-        finally:
-            return imgpath
-
-    def makedirs(self, path):
-        """创建文件夹"""
-        try:
-            if os.path.isdir(path):
-                pass
-            else:
-                os.makedirs(path)
-        except IOError, e:
-            logging.exception(e)
-            raise
-
     def cmpare_hbc(self, i):
         """根据车辆信息比对黄标车"""
         # 判断车牌是否需要黄标车查询
         f_hphm = helper.fix_hphm(i['hphm'], i['hpys_code'])
-        if f_hphm['hpzl'] != '00':
-            # 是否在黄标车集合里面
-            if self.check_hbc(f_hphm['hphm'], f_hphm['hpzl']):
-                jgsj = arrow.get(i['jgsj'])
-                # print u'黄表车: %s, 号牌颜色: %s' % (i['hphm'], i['hpys'])
-                hbc_img = self.check_hbc_img_by_hphm(
-                    jgsj.format('YYYY-MM-DD'), i['hphm'])
+        if f_hphm['hpzl'] == '00':
+            return
+        # 是否在黄标车集合里面
+        if not self.check_hbc(f_hphm['hphm'], f_hphm['hpzl']):
+            return
+        jgsj = arrow.get(i['jgsj'])
+        # print u'黄表车: %s, 号牌颜色: %s' % (i['hphm'], i['hpys'])
+        hbc_img = self.check_hbc_img_by_hphm(
+            jgsj.format('YYYY-MM-DD'), i['hphm'])
+        imgpath = ''
+        if hbc_img['total_count'] == 0:
+            try:
+                path = u'%s/%s/违章图片目录' % (
+                    self.hbc_img_path, jgsj.format(u'YYYY年MM月DD日'))
+                # 图片名称
+                name = u'机号%s车道A%s%sR454DOK3T%sC%sP%s驶向%s违章黄标车违反禁令标志' % (
+                    self.jh_dict[i['kkdd_id']], i['cdbh'],
+                    jgsj.format(u'YYYY年MM月DD日HH时mm分ss秒'),
+                    f_hphm['cpzl'], self.hpys_dict[i['hpys_code']],
+                    i['hphm'], self.fxbh_dict.get(i['fxbh_code'], u'其他'))
+                # 水印内容
+                text = u'违法时间:%s 违法地点:%s%s\n违法代码:13441 违法行为:违章黄标车 设备编号:%s\n防伪码:%s' % (
+                    i['jgsj'], self.city_name, i['kkdd'],
+                    self.sbdh_dict[i['kkdd_id']], helper.get_sign())
+                # 违章路标图片
+                wz_img = self.hbc_img.get((i['kkdd_id'], i['fxbh_code']), None)
+                if wz_img is not None:
+                    wz_img = u'hbc_img/'+wz_img
+                imgpath = img_builder.get_img_by_url(
+                    i['imgurl'], path, name, text, wz_img)
+            except Exception as e:
+                logger.error('url: %s' % i['imgurl'])
+                logger.error(e)
                 imgpath = ''
-                if hbc_img['total_count'] == 0:
-                    try:
-                        path = u'%s/%s/违章图片目录' % (
-                            self.hbc_img_path, jgsj.format(u'YYYY年MM月DD日'))
-                        name = u'机号%s车道A%s%sR454DOK3T%sC%sP%s驶向%s违章黄标车违反禁令标志' % (
-                            self.jh_dict[i['kkdd_id']], i['cdbh'],
-                            jgsj.format(u'YYYY年MM月DD日HH时mm分ss秒'),
-                            f_hphm['cpzl'], self.hpys_dict[i['hpys_code']],
-                            i['hphm'], self.fxbh_dict.get(i['fxbh_code'], u'其他'))
-                        text = u'违法时间:%s 违法地点:%s%s\n违法代码:13441 违法行为:违章黄标车 设备编号:%s\n防伪码:%s' % (
-                            i['jgsj'], self.city_name, i['kkdd'],
-                            self.sbdh_dict[i['kkdd_id']], helper.get_sign())
-                        wz_img = self.hbc_img.get((i['kkdd_id'], i['fxbh_code']), None)
-                        if wz_img is not None:
-                            wz_img = u'hbc_img/'+wz_img
-                        imgpath = self.get_img_by_url(
-                            i['imgurl'], path, name, text, wz_img)
-                    except Exception as e:
-                        logger.error('url: %s' % i['imgurl'])
-                        logger.error(e)
-                        imgpath = ''
 
-                data = {
-                    'jgsj': i['jgsj'],
-                    'hphm': i['hphm'],
-                    'kkdd_id': i['kkdd_id'],
-                    'hpys_code': i['hpys_code'],
-                    'fxbh_code': i['fxbh_code'],
-                    'cdbh': i['cdbh'],
-                    'imgurl': i['imgurl'],
-                    'imgpath': imgpath
-                }
-                # 添加黄标车信息到数据库
-                self.add_hbc(data)
+        data = {
+            'jgsj': i['jgsj'],
+            'hphm': i['hphm'],
+            'kkdd_id': i['kkdd_id'],
+            'hpys_code': i['hpys_code'],
+            'fxbh_code': i['fxbh_code'],
+            'cdbh': i['cdbh'],
+            'imgurl': i['imgurl'],
+            'imgpath': imgpath
+        }
+        # 添加黄标车信息到数据库
+        self.add_hbc(data)
 
     def fetch_data(self):
         """获取卡口车辆信息"""
