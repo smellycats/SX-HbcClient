@@ -4,11 +4,11 @@ import time
 import json
 #import shutil
 import logging
-import cStringIO
+#import cStringIO
 
 import requests
 import grequests
-from PIL import Image
+#from PIL import Image
 
 import helper
 import helper_wm
@@ -220,9 +220,11 @@ class HbcCompare(object):
                 base_path = u'%s\%s' % (self.wz_img_path, self.kkdd)
                 helper.makedirs(base_path)
                 for i in json.loads(r.text)['items']:
-                    path = u'%s\%s_%s.jpg' % (base_path, i['kkdd_id'], i['fxbh_code'])
-                    helper.get_url_img(i['img_url'], path)
-                    self.hbc_img_dict[(i['kkdd_id'], i['fxbh_code'])] = path
+                    filename = u'%s\%s_%s.jpg' % (base_path, i['kkdd_id'], i['fxbh_code'])
+                    # 如果图片不存在则抓图
+                    if not os.path.exists(filename):
+                        helper.get_url_img(i['img_url'], filename)
+                    self.hbc_img_dict[(i['kkdd_id'], i['fxbh_code'])] = filename
             else:
                 self.hbc_status = False
                 raise Exception('url: %s, status: %s, %s'
