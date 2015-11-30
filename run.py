@@ -37,6 +37,7 @@ class HbcCompare(object):
         self.step = self.hbc_conf['step']
         self.kkdd = self.hbc_conf['kkdd']
         self.city = self.hbc_conf['city']
+        self.city_name = self.hbc_conf['city_name']
 
         self.kakou_status = False
         self.cgs_status = False
@@ -63,14 +64,6 @@ class HbcCompare(object):
             'WE': u'西向东',
             'IN': u'东向西',
             'OT': u'西向东'
-        }
-        self.city_dict = {
-            '441302': 'hcq',
-            '441303': 'hy',
-            '441305': 'dyw',
-            '441322': 'bl',
-            '441323': 'hd',
-            '441324': 'lm',
         }
         self.hbc_img_path = self.hbc_conf['hbc_img_path']#u'd://videoandimage'
         self.wz_img_path = self.hbc_conf['wz_img_path']
@@ -338,11 +331,12 @@ class HbcCompare(object):
                             jgsj.format(u'YYYY年MM月DD日HH时mm分ss秒'),
                             f_hphm['cpzl'], self.hpys_dict[i['hpys_code']],
                             i['hphm'], self.fxbh_dict.get(i['fxbh_code'], u'其他'))
-                        text = u'违法时间:%s 违法地点:惠州市惠城区%s\n违法代码:13441 违法行为:违章黄标车 设备编号:%s\n防伪码:%s' % (
-                            i['jgsj'], i['kkdd'], self.sbdh_dict[i['kkdd_id']], helper.get_sign())
+                        text = u'违法时间:%s 违法地点:%s%s\n违法代码:13441 违法行为:违章黄标车 设备编号:%s\n防伪码:%s' % (
+                            i['jgsj'], self.city_name, i['kkdd'],
+                            self.sbdh_dict[i['kkdd_id']], helper.get_sign())
                         wz_img = self.hbc_img.get((i['kkdd_id'], i['fxbh_code']), None)
                         if wz_img is not None:
-                            wz_img = u'%s/%s' % (self.wz_img_path, wz_img)
+                            wz_img = u'hbc_img/'+wz_img
                         imgpath = self.get_img_by_url(
                             i['imgurl'], path, name, text, wz_img)
                     except Exception as e:
