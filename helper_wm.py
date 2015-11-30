@@ -2,6 +2,7 @@
 
 from PIL import Image, ImageEnhance, ImageDraw, ImageFont
 
+
 def text2img(text, font_color="White", font_size=25):
     """生成内容为 TEXT 的水印"""
 
