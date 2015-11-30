@@ -14,8 +14,6 @@ def fix_hphm(hphm, hpys):
         if header == u'粤L':
             if tail == u'学':
                 return {'hphm': hphm[1:-1], 'hpzl': '16', 'cpzl': u'标准车牌'}
-            if tail == u'挂':
-                return {'hphm': hphm[1:-1], 'hpzl': '15', 'cpzl': u'标准车牌'}
             if hpys == 2 or hpys == u'BU': #蓝牌
                 return {'hphm': hphm[1:], 'hpzl': '02', 'cpzl': u'标准车牌'}
             if hpys == 3 or hpys == u'YL': #黄牌
