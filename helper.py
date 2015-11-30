@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import shutil
 from random import Random
 
@@ -57,6 +58,16 @@ def random_str(randomlength=8):
 def get_sign():
     """生成防伪码"""
     return Signer('hzhbc').sign(random_str(6))
+
+def makedirs(path):
+    """创建文件夹"""
+    try:
+        if os.path.isdir(path):
+            pass
+        else:
+            os.makedirs(path)
+    except IOError,e:
+        raise
 
 def hbc_img():
     img_dict = {
