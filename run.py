@@ -28,11 +28,9 @@ class HbcCompare(object):
         self.hbc_conf = self.myini.get_hbc()
         self.kakou_ini = {'host': '10.47.187.165', 'port': 80}
         self.cgs_ini = {'host': '10.47.222.45', 'port': 8080,
-                        'username': 'test1', 'password': 'test12345',
-                        'token': 'eyJhbGciOiJIUzI1NiIsImV4cCI6MTQ0MzI1NjcyMiwiaWF0IjoxNDQzMjQ5NTIyfQ.eyJzY29wZSI6WyJzY29wZV9nZXQiLCJoemhiY19nZXQiXSwidWlkIjoyM30.Qga6zksBXBu8Aq9zVBb7tsR_vQFI4A7IfzdgMvGEfrw'}
+                        'username': 'test1', 'password': 'test12345'}
         self.hbc_ini = {'host': '127.0.0.1', 'port': 5000,
-                        'username': 'test1', 'password': 'test12345',
-                        'token': ''}
+                        'username': 'test1', 'password': 'test12345'}
         #self.cgs2_ini = {'host': '10.47.222.45', 'port': 8081}
         self.id_flag = self.hbc_conf['id_flag']
         self.step = self.hbc_conf['step']
@@ -43,8 +41,8 @@ class HbcCompare(object):
         self.kakou_status = False
         self.cgs_status = False
         self.hbc_status = False
-        # 黄标车集合 set
-        self.hzhbc_set = set()
+        # 黄标车集合 dict
+        self.gdhbc_dict = {}
         # 号牌颜色字典 dict
         self.hpys_dict = {
             'WT': u'白底黑字',
@@ -109,7 +107,7 @@ class HbcCompare(object):
             self.hbc_status = False
             raise
 
-    def get_hzhbc_by_hphm(self, hphm, hpzl):
+    def get_gdhbc_by_hphm(self, hphm, hpzl):
         headers = {
             'content-type': 'application/json',
             'access_token': self.cgs_ini['token']
@@ -142,7 +140,7 @@ class HbcCompare(object):
                 items = json.loads(r.text)['items']
                 print 'hbc_num:%s' % len(items)
                 for i in items:
-                    self.hzhbc_set.add((i['hphm'], i['hpzl']))
+                    self.gdhbc_dict[(i['hphm'], i['hpzl'])] = i['ccdjrq']
             else:
                 self.cgs_status = False
                 raise Exception('url: %s, status: %s, %s' % (
@@ -254,10 +252,16 @@ class HbcCompare(object):
 
     def check_hbc(self, hphm, hpzl):
         """检测是否黄标车"""
-        if (hphm, hpzl) in self.hzhbc_set:
-            if not self.get_hzhbc_by_hphm(hphm, hpzl):
-                return True
-        return False
+        ccdjrq = self.gdhbc_dict.get((hphm,hpzl), None)
+        if not ccdjrq:
+            return False
+        h = self.get_gdhbc_by_hphm(hphm, hpzl)
+        if not h:
+            return False
+
+        if arrow.get(ccdjrq).date() != arrow.get(h['ccdjrq']).date():
+            return False
+        return True
 
     def add_hbc(self, data):
         """添加黄标车信息"""
