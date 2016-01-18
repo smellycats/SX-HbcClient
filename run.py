@@ -69,51 +69,14 @@ class HbcCompare(object):
         self.hbc_img_dict = {}
         #self.hbc_img = helper.hbc_img()
 
-    def cgs_token(self):
-        url = 'http://%s:%s/token' % (self.cgs_ini['host'], self.cgs_ini['port'])
-        headers = {'content-type': 'application/json'}
-        data = {
-            'username': self.cgs_ini['username'],
-            'password': self.cgs_ini['password']
-        }
-        try:
-            r = requests.post(url, headers=headers, data=json.dumps(data))
-            if r.status_code == 200:
-                self.cgs_ini['token'] = json.loads(r.text)['access_token']
-                # print json.loads(r.text)['access_token']
-            else:
-                self.cgs_status = False
-                raise Exception('url: %s, status: %s, %s' % (url, r.status_code, r.text))
-        except Exception as e:
-            self.cgs_status = False
-            raise
-
-    def hbc_token(self):
-        url = 'http://%s:%s/token' % (self.hbc_ini['host'], self.hbc_ini['port'])
-        headers = {'content-type': 'application/json'}
-        data = {
-            'username': self.hbc_ini['username'],
-            'password': self.hbc_ini['password']
-        }
-        try:
-            r = requests.post(url, headers=headers, data=json.dumps(data))
-            if r.status_code == 201:
-                self.hbc_ini['token'] = json.loads(r.text)['access_token']
-            else:
-                self.hbc_status = False
-                raise Exception('url: %s, status: %s, %s' % (
-                    url, r.status_code, r.text))
-        except Exception as e:
-            self.hbc_status = False
-            raise
 
     def get_gdhbc_by_hphm(self, hphm, hpzl):
         headers = {
             'content-type': 'application/json',
             'access_token': self.cgs_ini['token']
         }
-        url = u'http://%s:%s/hzhbc/%s/%s' % (
-            self.cgs_ini['host'], self.cgs_ini['port'], hphm, hpzl)
+        url = u'http://{0[host]}:{0[port]}/hzhbc/{hphm}/{hpzl}'.format(
+            self.cgs_ini, hphm=hphm, hpzl=hpzl)
         try:
             r = requests.get(url, headers)
             if r.status_code == 200:
@@ -122,18 +85,18 @@ class HbcCompare(object):
                 return None
             else:
                 self.cgs_status = False
-                raise Exception('url: %s, status: %s, %s' % (
-                    url, r.status_code, r.text))
+                raise Exception('url: {url}, status: {code}, {text}'.format(
+                    url=url, code=r.status_code, text=r.text))
         except Exception as e:
             self.cgs_status = False
             raise
 
-    def get_hzhbc_all(self):
+    def get_gdhbc_all(self):
         headers = {
             'content-type': 'application/json',
             'access_token': self.cgs_ini['token']
         }
-        url = 'http://%s:%s/hzhbc' % (self.cgs_ini['host'], self.cgs_ini['port'])
+        url = 'http://{0[host]}:{0[port]}/hbc_all'.format(self.cgs_ini)
         try:
             r = requests.get(url, headers)
             if r.status_code == 200:
@@ -143,8 +106,8 @@ class HbcCompare(object):
                     self.gdhbc_dict[(i['hphm'], i['hpzl'])] = i['ccdjrq']
             else:
                 self.cgs_status = False
-                raise Exception('url: %s, status: %s, %s' % (
-                    url, r.status_code, r.text))
+                raise Exception('url: {url}, status: {code}, {text}'.format(
+                    url=url, code=r.status_code, text=r.text))
         except Exception as e:
             self.cgs_status = False
             raise
@@ -252,7 +215,7 @@ class HbcCompare(object):
 
     def check_hbc(self, hphm, hpzl):
         """检测是否黄标车"""
-        ccdjrq = self.gdhbc_dict.get((hphm,hpzl), None)
+        ccdjrq = self.gdhbc_dict.get((hphm, hpzl), None)
         if not ccdjrq:
             return False
         h = self.get_gdhbc_by_hphm(hphm, hpzl)
@@ -362,7 +325,7 @@ class HbcCompare(object):
 
         self.id_flag = carinfo['items'][-1]['id']
         self.myini.set_hbc(self.id_flag)
-        print '%s_id_flag: %s' % (self.city, self.id_flag)
+        print '{city}_id_flag: {flag}'.format(city=self.city, flag=self.id_flag)
         return -1
 
     def main_loop(self):
@@ -374,7 +337,7 @@ class HbcCompare(object):
             if not init_flag:
                 try:
                     # 获取黄标车数据
-                    self.get_hzhbc_all()
+                    self.get_gdhbc_all()
                     self.cgs_status = True
                     # 获取卡口地点数据
                     self.get_kkdd()
@@ -389,7 +352,7 @@ class HbcCompare(object):
                 try:
                     # 当前时间大于时间戳标记时间2小时则更新黄标车数据
                     if time.time() - time_flag > 7200:
-                        self.get_hzhbc_all()
+                        self.get_gdhbc_all()
                         time_flag = time.time()
                     self.fetch_data()
                 except Exception as e:
@@ -401,7 +364,7 @@ class HbcCompare(object):
                         self.get_cltxmaxid()
                         self.kakou_status = True
                     if not self.cgs_status:
-                        self.get_hzhbc_by_hphm(u'粤L12345', '02')
+                        self.get_gdhbc_by_hphm(u'粤L12345', '02')
                         self.cgs_status = True
                     if not self.hbc_status:
                         self.check_hbc_img_by_hphm('2015-09-26', u'粤L12345')
