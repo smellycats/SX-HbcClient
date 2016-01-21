@@ -72,10 +72,9 @@ class HbcCompare(object):
 
     def get_gdhbc_by_hphm(self, hphm, hpzl):
         headers = {
-            'content-type': 'application/json',
-            'access_token': self.cgs_ini['token']
+            'content-type': 'application/json'
         }
-        url = u'http://{0[host]}:{0[port]}/hzhbc/{hphm}/{hpzl}'.format(
+        url = u'http://{0[host]}:{0[port]}/hbc/{hphm}/{hpzl}'.format(
             self.cgs_ini, hphm=hphm, hpzl=hpzl)
         try:
             r = requests.get(url, headers)
@@ -93,8 +92,7 @@ class HbcCompare(object):
 
     def get_gdhbc_all(self):
         headers = {
-            'content-type': 'application/json',
-            'access_token': self.cgs_ini['token']
+            'content-type': 'application/json'
         }
         url = 'http://{0[host]}:{0[port]}/hbc_all'.format(self.cgs_ini)
         try:
@@ -149,8 +147,7 @@ class HbcCompare(object):
         url = 'http://%s:%s/kkdd/%s' % (
             self.hbc_ini['host'], self.hbc_ini['port'], self.kkdd)
         headers = {
-            'content-type': 'application/json',
-            'access_token': self.hbc_ini['token']
+            'content-type': 'application/json'
         }
         try:
             r = requests.get(url, headers=headers)
@@ -172,8 +169,7 @@ class HbcCompare(object):
         url = 'http://%s:%s/wzimg/%s' % (
             self.hbc_ini['host'], self.hbc_ini['port'], self.kkdd)
         headers = {
-            'content-type': 'application/json',
-            'access_token': self.hbc_ini['token']
+            'content-type': 'application/json'
         }
         try:
             r = requests.get(url, headers=headers)
@@ -196,8 +192,7 @@ class HbcCompare(object):
 
     def check_hbc_img_by_hphm(self, date, hphm):
         headers = {
-            'content-type': 'application/json',
-            'access_token': self.hbc_ini['token']
+            'content-type': 'application/json'
         }
         url = 'http://%s:%s/hbc/img/%s/%s/%s' % (
             self.hbc_ini['host'], self.hbc_ini['port'], date, hphm, self.kkdd)
@@ -231,8 +226,7 @@ class HbcCompare(object):
         url = 'http://%s:%s/hbc' % (
             self.hbc_ini['host'], self.hbc_ini['port'])
         headers = {
-            'content-type': 'application/json',
-            'access_token': self.hbc_ini['token']
+            'content-type': 'application/json'
         }
         try:
             r = requests.post(url, headers=headers, data=json.dumps(data))
