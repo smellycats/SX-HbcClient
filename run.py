@@ -7,7 +7,6 @@ import logging
 #import cStringIO
 
 import requests
-import grequests
 #from PIL import Image
 
 import helper
