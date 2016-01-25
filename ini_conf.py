@@ -7,29 +7,38 @@ class MyIni:
         self.cf = ConfigParser.ConfigParser()
         self.cf.read(conf_path)
 
-    def get_hbc(self):
+    def get_kakou(self):
         conf = {}
-        section = 'HBC'
+        section = 'KAKOU'
+        conf['host'] = self.cf.get(section, 'host')
+        conf['port'] = self.cf.getint(section, 'port')
         conf['id_flag'] = self.cf.getint(section, 'id_flag')
-        conf['step'] = self.cf.getint(section, 'step')
+        conf['id_step'] = self.cf.getint(section, 'id_step')
         conf['time_flag'] = self.cf.get(section, 'time_flag')
         conf['time_step'] = self.cf.getint(section, 'time_step')
         conf['kkdd'] = self.cf.get(section, 'kkdd')
         conf['city'] = self.cf.get(section, 'city')
         return conf
 
+    def get_hbc(self):
+        conf = {}
+        section = 'HBC'
+        conf['host'] = self.cf.get(section, 'host')
+        conf['port'] = self.cf.getint(section, 'port')
+        return conf
+
 
     def set_id(self, id_flag):
-        self.cf.set('HBC', 'id_flag', id_flag)
+        self.cf.set('KAKOU', 'id_flag', id_flag)
         self.cf.write(open(self.conf_path, 'w'))
 
     def set_time(self, time_flag):
-        self.cf.set('HBC', 'time_flag', time_flag)
+        self.cf.set('KAKOU', 'time_flag', time_flag)
         self.cf.write(open(self.conf_path, 'w'))
 
 if __name__ == '__main__':
     ini = MyIni()
-    hbc = ini.get_hbc()
-    print hbc
-    ini.set_time('2015-10-01 00:10:23')
+    print ini.get_kakou()
+    print ini.get_hbc()
+    #ini.set_time('2015-10-01 00:10:23')
     #print hbc
