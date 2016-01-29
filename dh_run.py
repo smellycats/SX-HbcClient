@@ -29,9 +29,6 @@ class FetchData(object):
         self.kkdd = self.kakou_conf['kkdd']
         self.city = self.kakou_conf['city']
 
-        self.time_flag = arrow.get(self.kakou_conf['time_flag'])
-        self.time_step = self.kakou_conf['time_step']
-
         self.kakou_status = False
         self.hbc_status = False
 
@@ -70,10 +67,12 @@ class FetchData(object):
             self.hbc_status = False
             raise
 
-    def get_cltxs(self, t1, time_step=60):
-        url = 'http://{0[host]}:{0[port]}/rest_hz_kakou/index.php/bk_bl/kakou/jgcl/{1}/{2}'.format(
-            self.kakou_ini, t1.format('YYYY-MM-DD HH:mm:ss'),
-            t1.replace(seconds=time_step).format('YYYY-MM-DD HH:mm:ss'))
+    def get_cltxs(self, id_flag, step=500):
+        #last_id = self.id_flag + self.step
+        #print 'test'
+        url = 'http://{0[host]}:{0[port]}/rest_hz_kakou/index.php/{1}/kakou/cltxs/{2}/{3}'.format(
+            self.kakou_ini, self.city, id_flag, id_flag+step)
+        #print url
         try:
             r = requests.get(url)
             if r.status_code == 200:
@@ -83,69 +82,86 @@ class FetchData(object):
                 raise Exception('url: {url}, status: {code}, {text}'.format(
                     url=url, code=r.status_code, text=r.text))
         except Exception as e:
+            #print e
             self.kakou_status = False
             raise
 
-##    def get_cltxmaxid(self):
-##        """获取最大cltx表id值"""
-##        url = 'http://{0[host]}:{0[port]}/rest_hz_kakou/index.php/{1}/kakou/cltxmaxid'.format(
-##            self.kakou_ini, self.city)
-##        try:
-##            r = requests.get(url)
-##            if r.status_code == 200:
-##                return json.loads(r.text)
-##            else:
-##                self.kakou_status = False
-##                raise Exception('url: {url}, status: {code}, {text}'.format(
-##                    url=url, code=r.status_code, text=r.text))
-##        except Exception as e:
-##            self.kakou_status = False
-##            raise
+    def get_cltxmaxid(self):
+        """获取最大cltx表id值"""
+        url = 'http://{0[host]}:{0[port]}/rest_hz_kakou/index.php/{1}/kakou/cltxmaxid'.format(
+            self.kakou_ini, self.city)
+        #print url
+        try:
+            r = requests.get(url)
+            if r.status_code == 200:
+                return json.loads(r.text)
+            else:
+                self.kakou_status = False
+                raise Exception('url: {url}, status: {code}, {text}'.format(
+                    url=url, code=r.status_code, text=r.text))
+        except Exception as e:
+            #print e
+            self.kakou_status = False
+            raise
 
     def fetch_data(self):
         """获取卡口车辆信息"""
-        #print 'fetch_data'
-        now = arrow.now()
-        if now.replace(minutes=-30) < self.time_flag:
+        maxid = self.get_cltxmaxid()['maxid']
+        #print maxid
+        if maxid <= self.id_flag:  # 没有新的数据 返回1
             return
-        info = self.get_cltxs(self.time_flag, self.time_step)
-        #print info
+        info = self.get_cltxs(self.id_flag, self.step)
         if info['total_count'] == 0:
-            self.time_flag = self.time_flag.replace(seconds=self.time_step)
-            self.myini.set_time(str(self.time_flag))
+            if self.id_flag + self.step < maxid:
+                self.id_flag += self.step
+            else:
+                self.id_flag = maxid
+            self.myini.set_id(self.id_flag)
             return
-
+        
         # 过滤无效车牌
         def data_valid(i):
-            if i['kkdd_id'] and i['hphm'] != '' and i['hphm'] != '-' and i['fxbh_code'] == 'IN':
+            if i['kkdd_id'] and i['hphm'] != '' and i['hphm'] != '-':
                 return i
-        r = self.kakou_post(filter(data_valid, info['items']))
+
+        #print info
+        d = filter(data_valid, info['items'])
+        if d:
+            r = self.kakou_post(d)
+        else:
+            self.id_flag = info['items'][-1]['id']
+            self.myini.set_id(self.id_flag)
+            return
+
         if r.status_code == 202:
-            self.time_flag = self.time_flag.replace(seconds=self.time_step)
-            self.myini.set_time(str(self.time_flag))
-            if info['total_count'] >= 0:
-                print '{0}: {1}_{2}'.format(arrow.now(), self.city,
-                                            str(self.time_flag))
+            self.id_flag = info['items'][-1]['id']
+            self.myini.set_id(self.id_flag)
+            if info['total_count'] > 5:
+                print '{0}: {1}_{2}'.format(arrow.now(), self.city, self.id_flag)
         elif r.status_code == 429: #服务繁忙
             time.sleep(2)
 
     def main_loop(self):
         while 1:
+            #print 'test'
             if self.kakou_status and self.hbc_status:
                 try:
                     self.fetch_data()
                     time.sleep(2)
                 except Exception as e:
+                    #print e
                     time.sleep(1)
             else:
+                #print 'fail'
                 try:
                     if not self.kakou_status:
-                        self.get_cltxs(self.time_flag, self.time_step)
+                        self.get_cltxmaxid()
                         self.kakou_status = True
                     if not self.hbc_status:
                         self.que_get()
                         self.hbc_status = True
                 except Exception as e:
+                    #print e
                     time.sleep(1)
 
 if __name__ == '__main__':  # pragma nocover

@@ -40,9 +40,11 @@ class FetchData(object):
 
     def kakou_post(self, carinfo):
         """上传卡口数据"""
+        #print 'kakou_post'
         headers = {'content-type': 'application/json'}
         url = 'http://{0[host]}:{0[port]}/hbc'.format(self.hbc_ini)
         data = {'carinfo': carinfo}
+        #print data
         try:
             r = requests.post(url, headers=headers, data=json.dumps(data))
             if r.status_code == 202 or r.status_code == 429:
@@ -71,7 +73,7 @@ class FetchData(object):
             raise
 
     def get_cltxs(self, t1, time_step=60):
-        url = 'http://{0[host]}:{0[port]}/rest_hz_kakou/index.php/bk_bl/kakou/jgcl/{1}/{2}'.format(
+        url = 'http://{0[host]}:{0[port]}/rest_hz_kakou/index.php/jjlm/kakou/jgcl/{1}/{2}'.format(
             self.kakou_ini, t1.format('YYYY-MM-DD HH:mm:ss'),
             t1.replace(seconds=time_step).format('YYYY-MM-DD HH:mm:ss'))
         try:
@@ -114,12 +116,18 @@ class FetchData(object):
             self.time_flag = self.time_flag.replace(seconds=self.time_step)
             self.myini.set_time(str(self.time_flag))
             return
-
+        #print info
         # 过滤无效车牌
         def data_valid(i):
             if i['kkdd_id'] and i['hphm'] != '' and i['hphm'] != '-' and i['fxbh_code'] == 'IN':
                 return i
-        r = self.kakou_post(filter(data_valid, info['items']))
+        d = filter(data_valid, info['items'])
+        if d:
+            r = self.kakou_post(d)
+        else:
+            self.time_flag = self.time_flag.replace(seconds=self.time_step)
+            self.myini.set_time(str(self.time_flag))
+            return
         if r.status_code == 202:
             self.time_flag = self.time_flag.replace(seconds=self.time_step)
             self.myini.set_time(str(self.time_flag))
@@ -129,14 +137,18 @@ class FetchData(object):
         elif r.status_code == 429: #服务繁忙
             time.sleep(2)
 
+##        if r.status_code == 422:
+##            print r.text
+
     def main_loop(self):
         while 1:
             if self.kakou_status and self.hbc_status:
                 try:
                     self.fetch_data()
-                    time.sleep(2)
+                    time.sleep(3)
                 except Exception as e:
-                    time.sleep(1)
+                    print e
+                    time.sleep(2)
             else:
                 try:
                     if not self.kakou_status:
@@ -146,7 +158,7 @@ class FetchData(object):
                         self.que_get()
                         self.hbc_status = True
                 except Exception as e:
-                    time.sleep(1)
+                    time.sleep(2)
 
 if __name__ == '__main__':  # pragma nocover
     fd = FetchData()
