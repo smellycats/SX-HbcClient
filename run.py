@@ -104,7 +104,7 @@ class FetchData(object):
         maxid = self.get_cltxmaxid()['maxid']
         if maxid <= self.id_flag:  # 没有新的数据 返回1
             return
-        print self.id_flag
+
         info = self.get_cltxs(self.id_flag, self.step)
         if info['total_count'] == 0:
             if self.id_flag + self.step < maxid:
@@ -118,23 +118,29 @@ class FetchData(object):
         def data_valid(i):
             if i['kkdd_id'] and i['hphm'] != '' and i['hphm'] != '-':
                 return i
-        r = self.kakou_post(filter(data_valid, info['items']))
+        d = filter(data_valid, info['items'])
+        if d:
+            r = self.kakou_post(d)
+        else:
+            self.id_flag = info['items'][-1]['id']
+            self.myini.set_id(self.id_flag)
+            return
 
         if r.status_code == 202:
             self.id_flag = info['items'][-1]['id']
             self.myini.set_id(self.id_flag)
+            if info['total_count'] > 5:
+                print '{0}: {1}_{2}'.format(arrow.now(), self.city, self.id_flag)
         elif r.status_code == 429: #服务繁忙
             time.sleep(2)
 
     def main_loop(self):
         while 1:
-            #print 'test'
             if self.kakou_status and self.hbc_status:
                 try:
                     self.fetch_data()
-                    time.sleep(1)
+                    time.sleep(2)
                 except Exception as e:
-                    print e
                     time.sleep(1)
             else:
                 try:
@@ -145,7 +151,6 @@ class FetchData(object):
                         self.que_get()
                         self.hbc_status = True
                 except Exception as e:
-                    print e
                     time.sleep(1)
 
 if __name__ == '__main__':  # pragma nocover
