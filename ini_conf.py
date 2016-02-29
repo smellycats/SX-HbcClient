@@ -27,7 +27,6 @@ class MyIni:
         conf['port'] = self.cf.getint(section, 'port')
         return conf
 
-
     def set_id(self, id_flag):
         self.cf.set('KAKOU', 'id_flag', id_flag)
         self.cf.write(open(self.conf_path, 'w'))

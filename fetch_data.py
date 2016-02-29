@@ -5,7 +5,6 @@ import json
 
 import arrow
 import requests
-from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
 from ini_conf import MyIni
 
@@ -43,7 +42,7 @@ class FetchData(object):
         data = {'carinfo': carinfo}
         try:
             r = requests.post(url, headers=headers, data=json.dumps(data))
-            if r.status_code == 200 or r.status_code == 429:
+            if r.status_code == 202 or r.status_code == 429:
                 return r
             else:
                 self.hbc_status = False
@@ -57,7 +56,7 @@ class FetchData(object):
         """查看队列情况"""
         url = 'http://{0[host]}:{0[port]}/que'.format(self.hbc_ini)
         try:
-            r = requests.post(url, headers=headers, data=json.dumps(data))
+            r = requests.get(url)
             if r.status_code == 200:
                 return r
             else:
@@ -68,8 +67,7 @@ class FetchData(object):
             self.hbc_status = False
             raise
 
-    def get_cltxs(self, id_flag, step=100):
-        #last_id = self.id_flag + self.step
+    def get_cltxs(self, id_flag, step=500):
         url = 'http://{0[host]}:{0[port]}/rest_hz_kakou/index.php/{1}/kakou/cltxs/{2}/{3}'.format(
             self.kakou_ini, self.city, id_flag, id_flag+step)
         try:
@@ -81,6 +79,7 @@ class FetchData(object):
                 raise Exception('url: {url}, status: {code}, {text}'.format(
                     url=url, code=r.status_code, text=r.text))
         except Exception as e:
+            print e
             self.kakou_status = False
             raise
 
@@ -105,21 +104,33 @@ class FetchData(object):
         maxid = self.get_cltxmaxid()['maxid']
         if maxid <= self.id_flag:  # 没有新的数据 返回1
             return
-        info = self.get_cltxs()
+
+        info = self.get_cltxs(self.id_flag, self.step)
         if info['total_count'] == 0:
             if self.id_flag + self.step < maxid:
                 self.id_flag += self.step
             else:
                 self.id_flag = maxid
-            self.myini.set_hbc(self.id_flag)
+            self.myini.set_id(self.id_flag)
             return
+
         # 过滤无效车牌
-        def data_valid(i)
+        def data_valid(i):
             if i['kkdd_id'] and i['hphm'] != '' and i['hphm'] != '-':
                 return i
-        r = self.kakou_post(filter(data_valid, info['items']))
-        if r.status_code == 201:
-            self.myini.set_hbc(info['items'][-1]['id'])
+        d = filter(data_valid, info['items'])
+        if d:
+            r = self.kakou_post(d)
+        else:
+            self.id_flag = info['items'][-1]['id']
+            self.myini.set_id(self.id_flag)
+            return
+
+        if r.status_code == 202:
+            self.id_flag = info['items'][-1]['id']
+            self.myini.set_id(self.id_flag)
+            if info['total_count'] > 5:
+                print '{0}: {1}_{2}'.format(arrow.now(), self.city, self.id_flag)
         elif r.status_code == 429: #服务繁忙
             time.sleep(2)
 
@@ -128,7 +139,7 @@ class FetchData(object):
             if self.kakou_status and self.hbc_status:
                 try:
                     self.fetch_data()
-                    time.sleep(1)
+                    time.sleep(2)
                 except Exception as e:
                     time.sleep(1)
             else:
@@ -142,6 +153,4 @@ class FetchData(object):
                 except Exception as e:
                     time.sleep(1)
 
-if __name__ == '__main__':  # pragma nocover
-    fd = FetchData()
-    fd.main_loop()
+
