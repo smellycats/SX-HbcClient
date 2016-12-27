@@ -12,8 +12,10 @@ class MyIni:
         section = 'KAKOU'
         conf['host'] = self.cf.get(section, 'host')
         conf['port'] = self.cf.getint(section, 'port')
-        conf['id_flag'] = self.cf.getint(section, 'id_flag')
-        conf['id_step'] = self.cf.getint(section, 'id_step')
+        conf['username']  = self.cf.get(section, 'username')
+        conf['password']  = self.cf.get(section, 'password')
+        conf['id_flag']   = self.cf.getint(section, 'id_flag')
+        conf['id_step']   = self.cf.getint(section, 'id_step')
         conf['time_flag'] = self.cf.get(section, 'time_flag')
         conf['time_step'] = self.cf.getint(section, 'time_step')
         conf['kkdd'] = self.cf.get(section, 'kkdd')
@@ -26,6 +28,7 @@ class MyIni:
         conf['host'] = self.cf.get(section, 'host')
         conf['port'] = self.cf.getint(section, 'port')
         return conf
+
 
     def set_id(self, id_flag):
         self.cf.set('KAKOU', 'id_flag', id_flag)
