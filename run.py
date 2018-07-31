@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-from post_data import FetchData
+from upload_data import UploadData
 
 if __name__ == '__main__':  # pragma nocover
-    fd = FetchData()
+    fd = UploadData()
     fd.main_loop()

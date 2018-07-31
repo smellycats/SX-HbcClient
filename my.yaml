@@ -1,0 +1,7 @@
+kafka:
+  services: 10.123.123.123:9092, 10.123.123.124:9092, 10.123.123.125:9092
+  groupid: hbc_client
+  topic: kk_hz
+consul:
+  ttl: 30
+  lock_name: hbc-kafka-hz

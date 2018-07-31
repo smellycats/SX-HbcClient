@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 import json
 
 import requests
@@ -11,11 +11,11 @@ class Hbc(object):
         self.port = kwargs['port']
         self.headers = {'content-type': 'application/json'}
 
-	self.status = False
+        self.status = False
 
     def kakou_post(self, data):
         """上传卡口数据"""
-        url = u'http://{0}:{1}/hbc'.format(self.host, self.port)
+        url = 'http://{0}:{1}/hbc/hbc'.format(self.host, self.port)
         try:
             r = requests.post(url, headers=self.headers,
                               data=json.dumps({'carinfo': data}))
@@ -31,7 +31,7 @@ class Hbc(object):
 
     def que_get(self):
         """查看队列情况"""
-        url = u'http://{0}:{1}/que'.format(self.host, self.port)
+        url = 'http://{0}:{1}/hbc/que'.format(self.host, self.port)
         try:
             r = requests.get(url, headers=self.headers)
             if r.status_code == 200:
