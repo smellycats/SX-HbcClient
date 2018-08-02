@@ -12,14 +12,14 @@ from my_yaml import MyYAML
 from my_logger import *
 
 
-debug_logging('logs/error.log')
+debug_logging('/home/logs/error.log')
 logger = logging.getLogger('root')
 
 
 class UploadData(object):
     def __init__(self):
         # 配置文件
-        self.my_ini = MyYAML('my.yaml').get_ini()
+        self.my_ini = MyYAML('/home/my.yaml').get_ini()
 
         # request方法类
         self.kc = None
@@ -63,7 +63,7 @@ class UploadData(object):
         offsets = {}
         for i in range(200):
             msg = self.kc.c.poll(0.005)
-        
+
             if msg is None:
                 continue
             if msg.error():
@@ -95,7 +95,7 @@ class UploadData(object):
                     self.kc.assign(self.part_list)
                 if self.hbc is not None and self.hbc.status:
                     self.upload_data()
-                    time.sleep(0.5)
+                    time.sleep(0.25)
                 else:
                     s = self.get_service('kong')
                     if s is None:
